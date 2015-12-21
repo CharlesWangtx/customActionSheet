@@ -5,27 +5,37 @@
 //  Created by taixiangwang on 15/9/15.
 //  Copyright (c) 2015年 apple. All rights reserved.
 //
-#define cellHeight              44
-#define cancelToTabView         20
+#define cellHeight              50
+#define cancelToTabView         10
 #define toView                  10
 #define selfWidth               SCREENWIDTH-2*toView
 
 
 #import "CustomAction.h"
+#import "ActionCollectionViewCell.h"
 
-@interface CustomAction ()<UITableViewDataSource,UITableViewDelegate>
+@interface CustomAction ()<UITableViewDataSource,UITableViewDelegate,UICollectionViewDataSource,UICollectionViewDelegate>
 
 @property (nonatomic,strong) UITableView *otherTabView;
 @property (nonatomic,strong) NSArray *otherButtonArr;
+
+@property (nonatomic,strong) UICollectionView *otherCollectView;
+@property (nonatomic,strong) NSArray *otherTitleCollectArr;
+@property (nonatomic,strong) NSArray *otherImgsCollectArr;
+
 @property (nonatomic,strong) UIView *backimageView;
 
 @property (nonatomic,assign) CGFloat customHeight;
 @property (nonatomic,assign) CGFloat titleHeight;
 
+//是tableview 还是collectView
+@property (nonatomic,assign) BOOL isTableView;
+
 @end
 
 @implementation CustomAction
 
+//tableview
 -(instancetype)initCustomWithTitle:(NSString *)title delegate:(id<CustomActionDelegate>)delegate cancelButtonTitle:(NSString *)cancelButtonTitle otherButtonTitles:(NSArray *)otherButtonTitles{
     
     if (self = [super init]) {
@@ -33,26 +43,42 @@
         self.backgroundColor = [UIColor clearColor];
         self.otherButtonArr = [NSArray arrayWithArray:otherButtonTitles];
         self.delegate = delegate;
+        self.isTableView = YES;
         
-        if (title) {
-            self.titleLabel = [[UILabel alloc]initWithFrame:CGRectMake(0, 5, SCREENWIDTH, 25)];
-            self.titleLabel.font = [UIFont systemFontOfSize:12];
+        if (title&&![title isEqualToString:@""]) {
+            //动态计算title高度
+            self.titleHeight = [NSString getTextHeightWithText:title andFont:[UIFont systemFontOfSize:15] andWidth:selfWidth]+30;
+            
+            self.titleLabel = [[UILabel alloc]initWithFrame:CGRectMake(20, 15, selfWidth-40, self.titleHeight-20)];
+            self.titleLabel.font = [UIFont systemFontOfSize:15];
+            self.titleLabel.adjustsFontSizeToFitWidth = YES;
             self.titleLabel.text = title;
-            self.titleLabel.textColor = [UIColor darkGrayColor];
+            self.titleLabel.textColor = [UIColor getColorWithHex:CELLDETAILCOLOR];
             self.titleLabel.textAlignment = NSTextAlignmentCenter;
+            self.titleLabel.numberOfLines = 0;
             
             //创建中间的tableview
-            self.otherTabView = [[UITableView alloc]initWithFrame:CGRectMake(0, 0, selfWidth, self.otherButtonArr.count*cellHeight+30) style:UITableViewStylePlain];
-            self.titleHeight = 30;
+            CGFloat tabViewHeight = self.otherButtonArr.count*cellHeight+self.titleHeight;
+            if (tabViewHeight>=SCREENHEIGHT*2./3) {
+                tabViewHeight = SCREENHEIGHT*2./3;
+            }
+            self.otherTabView = [[UITableView alloc]initWithFrame:CGRectMake(0, 0, selfWidth, tabViewHeight) style:UITableViewStylePlain];
+            
         }
         else{
-            //创建中间的tableview
-            self.otherTabView = [[UITableView alloc]initWithFrame:CGRectMake(0, 0, selfWidth, self.otherButtonArr.count*cellHeight) style:UITableViewStylePlain];
             self.titleHeight = 0;
+            //创建中间的tableview
+            CGFloat tabViewHeight = self.otherButtonArr.count*cellHeight+self.titleHeight;
+            if (tabViewHeight>=SCREENHEIGHT*2./3) {
+                tabViewHeight = SCREENHEIGHT*2./3;
+            }
+            self.otherTabView = [[UITableView alloc]initWithFrame:CGRectMake(0, 0, selfWidth, tabViewHeight) style:UITableViewStylePlain];
+            
         }
         
+        self.otherTabView.alwaysBounceVertical = NO;
         self.otherTabView.backgroundColor = [UIColor whiteColor];
-        self.otherTabView.layer.cornerRadius = 5.0;
+        self.otherTabView.layer.cornerRadius = 8.0;
         self.otherTabView.delegate = self;
         self.otherTabView.dataSource = self;
         self.otherTabView.rowHeight = cellHeight;
@@ -75,14 +101,80 @@
             //cancel
             self.cancelBtn = [UIButton buttonWithType:UIButtonTypeCustom];
             self.cancelBtn.frame = CGRectMake(0, self.customHeight-cellHeight, selfWidth, cellHeight);
-            self.cancelBtn.layer.cornerRadius = 5.0;
-            [self.cancelBtn setTitleColor:[UIColor getColorWithHex:YellowText] forState:UIControlStateNormal];
+            self.cancelBtn.layer.cornerRadius = 8.0;
+            [self.cancelBtn setTitleColor:[UIColor getColorWithHex:YellowTextColor] forState:UIControlStateNormal];
             self.cancelBtn.backgroundColor = [UIColor whiteColor];
             [self.cancelBtn setTitle:cancelButtonTitle forState:UIControlStateNormal
              ];
+            self.cancelBtn.titleLabel.font = [UIFont systemFontOfSize:18];
             [self.cancelBtn addTarget:self action:@selector(cancelBtnClick) forControlEvents:UIControlEventTouchUpInside];
             [self addSubview:self.cancelBtn];
         }
+        
+    }
+    
+    return self;
+}
+
+//collectview
+- (instancetype)initCustomBottomWithTitle:(NSString *)title delegate:(id<CustomActionDelegate>)delegate otherButtonTitles:(NSArray *)otherButtonTitles otherBtnImgs:(NSArray *)otherBtnImgs{
+    if (self = [super init]) {
+        
+        self.backgroundColor = [UIColor whiteColor];
+        self.otherTitleCollectArr = [NSArray arrayWithArray:otherButtonTitles];
+        self.otherImgsCollectArr = [NSArray arrayWithArray:otherBtnImgs];
+        self.delegate = delegate;
+        self.isTableView = NO;
+        
+        CGFloat itemWidth = SCREENWIDTH*(1.0/3)-5;
+        CGFloat drawHeight = 0.0;
+        if (otherButtonTitles.count%3!=0) {
+            drawHeight  = otherButtonTitles.count/3+1;
+        }
+        else if(otherButtonTitles.count%3==0){
+            drawHeight = otherButtonTitles.count/3;
+        }
+        
+        if (title) {
+            self.titleLabel = [[UILabel alloc]initWithFrame:CGRectMake(0, 5, SCREENWIDTH, 25)];
+            self.titleLabel.font = [UIFont systemFontOfSize:13];
+            self.titleLabel.text = title;
+            self.titleLabel.textColor = [UIColor darkGrayColor];
+            self.titleLabel.textAlignment = NSTextAlignmentCenter;
+            self.titleLabel.adjustsFontSizeToFitWidth = YES;
+            
+            //创建中间的collectview
+            UICollectionViewFlowLayout *layout = [[UICollectionViewFlowLayout alloc]init];
+            layout.itemSize = CGSizeMake(itemWidth, itemWidth);
+            layout.minimumInteritemSpacing = 1;
+            layout.minimumLineSpacing = 1;
+            layout.sectionInset = UIEdgeInsetsMake(0, 0, 0, 0);
+            self.otherCollectView = [[UICollectionView alloc]initWithFrame:CGRectMake(0, 10, SCREENWIDTH, (self.otherTitleCollectArr.count<3?1:self.otherTitleCollectArr.count/3)*drawHeight+30) collectionViewLayout:layout];
+            
+            self.titleHeight = 30;
+        }
+        else{
+            //创建中间的collectview
+            UICollectionViewFlowLayout *layout = [[UICollectionViewFlowLayout alloc]init];
+            layout.itemSize = CGSizeMake(itemWidth, itemWidth);
+            layout.minimumInteritemSpacing = 1;
+            layout.minimumLineSpacing = 1;
+            layout.sectionInset = UIEdgeInsetsMake(0, 0, 0, 0);
+            self.otherCollectView = [[UICollectionView alloc]initWithFrame:CGRectMake(0, 10, SCREENWIDTH, drawHeight*itemWidth) collectionViewLayout:layout];
+            
+            self.titleHeight = 0;
+        }
+        
+        self.otherCollectView.alwaysBounceVertical = NO;
+        self.otherCollectView.backgroundColor = [UIColor whiteColor];
+        self.otherCollectView.delegate = self;
+        self.otherCollectView.dataSource = self;
+        [self addSubview:self.otherCollectView];
+        
+        [self.otherCollectView registerNib:[UINib nibWithNibName:@"ActionCollectionViewCell" bundle:nil] forCellWithReuseIdentifier:@"Cell"];
+        
+        //计算自身view的高度
+        self.customHeight = self.otherCollectView.height+20;
         
     }
     
@@ -116,6 +208,58 @@
 -(void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath{
     
     if (tableView.tag==self.tag) {
+        
+        if ([self.delegate respondsToSelector:@selector(customActionSheet:clickedButtonAtIndex:)])
+        {
+            [self.delegate customActionSheet:self clickedButtonAtIndex:indexPath.row];
+        }
+        
+        if (self.tabViewDidSelectBlock) {
+            self.tabViewDidSelectBlock(indexPath.row);
+        }
+        
+        [self dismissActionSheet];
+    }
+    
+}
+
+#pragma mark - UITableViewDatasource
+-(UIView *)tableView:(UITableView *)tableView viewForHeaderInSection:(NSInteger)section{
+    UIView *headView = [[UIView alloc]init];
+    [headView addSubview:self.titleLabel];
+    
+    //横线
+    UIImageView *lineImgV = [[UIImageView alloc]initWithFrame:CGRectMake(0, self.titleLabel.bottom+8, selfWidth, 1)];
+    lineImgV.alpha = .3;
+    lineImgV.backgroundColor = [UIColor getColorWithHex:CELLDETAILCOLOR];
+    [headView addSubview:lineImgV];
+    
+    return headView;
+}
+
+-(UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath{
+    UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:@"cell"];
+    if (!cell) {
+        cell = [[UITableViewCell alloc]initWithStyle:UITableViewCellStyleDefault reuseIdentifier:@"cell"];
+    }
+    
+    cell.selectionStyle = UITableViewCellSelectionStyleNone;
+    if (self.otherButtonArr.count>0) {
+        cell.textLabel.adjustsFontSizeToFitWidth = YES;
+        cell.textLabel.font = [UIFont systemFontOfSize:17];
+        cell.textLabel.text = self.otherButtonArr[indexPath.row];
+        cell.textLabel.textAlignment = NSTextAlignmentCenter;
+        cell.textLabel.textColor = [UIColor getColorWithHex:YellowTextColor];
+    }
+    
+    return cell;
+    
+}
+
+#pragma mark - UICollectViewDelegate
+- (void)collectionView:(UICollectionView *)collectionView didSelectItemAtIndexPath:(NSIndexPath *)indexPath{
+    
+    if (collectionView.tag==self.tag) {
         if ([self.delegate respondsToSelector:@selector(customActionSheet:clickedButtonAtIndex:)])
         {
             [self.delegate customActionSheet:self clickedButtonAtIndex:indexPath.row];
@@ -125,36 +269,44 @@
     
 }
 
-#pragma mark - UITableViewDatasource
--(UIView *)tableView:(UITableView *)tableView viewForHeaderInSection:(NSInteger)section{
+
+#pragma mark - UICollectViewDatasource
+- (NSInteger)collectionView:(UICollectionView *)collectionView numberOfItemsInSection:(NSInteger)section{
     
-    return self.titleLabel;
-}
--(UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath{
-    UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:@"cell"];
-    if (!cell) {
-        cell = [[UITableViewCell alloc]initWithStyle:UITableViewCellStyleDefault reuseIdentifier:@"cell"];
-    }
-    
-    cell.selectionStyle = UITableViewCellSelectionStyleNone;
-    if (self.otherButtonArr.count>0) {
-        cell.textLabel.text = self.otherButtonArr[indexPath.row];
-        cell.textLabel.textAlignment = NSTextAlignmentCenter;
-        cell.textLabel.textColor = [UIColor getColorWithHex:YellowText];
-    }
-    
-    return cell;
-    
+    return self.otherTitleCollectArr.count;
 }
 
+- (NSInteger)numberOfSectionsInCollectionView:(UICollectionView *)collectionView{
+    return 1;
+}
+
+- (UICollectionViewCell *)collectionView:(UICollectionView *)collectionView cellForItemAtIndexPath:(NSIndexPath *)indexPath{
+    ActionCollectionViewCell *cell = [collectionView dequeueReusableCellWithReuseIdentifier:@"Cell" forIndexPath:indexPath];
+    cell.imgV.image = [UIImage imageNamed:self.otherImgsCollectArr[indexPath.row]];
+    cell.label.text = self.otherTitleCollectArr[indexPath.row];
+    cell.label.adjustsFontSizeToFitWidth = YES;
+    
+    return cell;
+}
+
+#pragma mark - actionsheetShow
 - (void)show
-{   //获取第一响应视图视图
-    //UIViewController *topVC = [self appRootViewController];
+{
+    //获取第一响应视图视图
     UIWindow *window = [UIApplication sharedApplication].keyWindow;
     
-    self.frame = CGRectMake(toView, SCREENHEIGHT+self.customHeight, selfWidth, self.customHeight);
+    if (self.isTableView) {
+        self.frame = CGRectMake(toView, SCREENHEIGHT+self.customHeight, selfWidth, self.customHeight);
+    }
+    else{
+        self.frame = CGRectMake(0, SCREENHEIGHT+self.customHeight, SCREENWIDTH, self.customHeight);
+    }
+    
+    
     self.alpha=0;
     self.otherTabView.tag = self.tag;
+    self.otherCollectView.tag = self.tag;
+    
     [window addSubview:self];
     
 }
@@ -184,8 +336,14 @@
     [self.backimageView removeFromSuperview];
     self.backimageView = nil;
     UIViewController *topVC = [self appRootViewController];
-    CGRect afterFrame = CGRectMake(toView, topVC.view.height, selfWidth , self.customHeight);
-    
+    CGRect afterFrame;
+    if (self.isTableView) {
+        afterFrame = CGRectMake(toView, topVC.view.height, selfWidth , self.customHeight);
+    }
+    else{
+        afterFrame = CGRectMake(0, topVC.view.height, SCREENWIDTH , self.customHeight);
+    }
+
     [UIView animateWithDuration:0.3f delay:0.0 options:UIViewAnimationOptionCurveEaseOut animations:^{
         self.frame = afterFrame;
         self.alpha=0;
@@ -215,10 +373,23 @@
     UIWindow *window = [UIApplication sharedApplication].keyWindow;
     [window addSubview:self.backimageView];
     
-    self.frame = CGRectMake(toView, SCREENHEIGHT+self.customHeight, selfWidth, self.customHeight);
+    if (self.isTableView) {
+        self.frame = CGRectMake(toView, SCREENHEIGHT+self.customHeight, selfWidth, self.customHeight);
+    }
+    else{
+        self.frame = CGRectMake(0, SCREENHEIGHT+self.customHeight, SCREENWIDTH, self.customHeight);
+    }
     
+    //视图显示
     [UIView animateWithDuration:0.3f delay:0.0 options:UIViewAnimationOptionCurveEaseInOut animations:^{
-        self.frame = CGRectMake(toView, window.height - self.customHeight-10, selfWidth, self.customHeight);
+        
+        if (self.isTableView) {
+           self.frame = CGRectMake(toView, window.height - self.customHeight-10, selfWidth, self.customHeight);
+        }
+        else{
+            self.frame = CGRectMake(0, window.height - self.customHeight, SCREENWIDTH, self.customHeight);
+        }
+        
         self.alpha=1;
     } completion:^(BOOL finished) {
     }];
